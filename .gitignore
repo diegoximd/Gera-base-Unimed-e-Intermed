@@ -1,0 +1,11 @@
+# Arquivos de credenciais e segredos
+api_credentials.json
+db_config.json
+
+# Arquivos de debug/log gerados pelo script
+api_payload_bruto.json
+debug_chaves.txt
+
+# Arquivos de ambiente Python
+__pycache__/
+*.pyc

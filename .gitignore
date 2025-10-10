@@ -9,3 +9,6 @@ debug_chaves.txt
 # Arquivos de ambiente Python
 __pycache__/
 *.pyc
+
+# Pastas, Log e Cache
+dist/

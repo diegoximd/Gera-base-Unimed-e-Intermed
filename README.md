@@ -7,7 +7,7 @@ Este projeto é um script Python com interface gráfica (GUI) desenvolvido para 
 ## 🌟 Funcionalidades Principais
 
 * **Interface Gráfica (GUI):** Utiliza Tkinter para facilitar a seleção de empresa e parâmetros de data.
-* **Segurança de Credenciais:** As chaves de acesso são lidas de um arquivo local (api_credentials.json), que é **ignorado pelo Git** (.gitignore).
+* **Segurança de Credenciais:** As chaves de acesso são lidas de um arquivo local (config.py), que é **ignorado pelo Git** (.gitignore).
 * **Mapeamento e Formatação Exatos:**
     * Mapeamento de campos críticos: mci (da API) $\rightarrow$ **NR OPERAÇÃO** e conta (da API) $\rightarrow$ **CONTA**.
     * Formatação de valores monetários para o **padrão brasileiro** (ex: 1.234,56).
@@ -38,7 +38,7 @@ pip install requests pandas openpyxl tkcalendar
 
 O projeto requer um arquivo de configuração JSON local para armazenar as credenciais de acesso à API.
 
-**Atenção:** Este arquivo DEVE ser chamado `api_credentials.json` e **NÃO** deve ser enviado ao GitHub (ele está listado no `.gitignore`).
+**Atenção:** Este arquivo DEVE ser chamado `config.py` e **NÃO** deve ser enviado ao GitHub (ele está listado no `.gitignore`).
 
 ### 🧩 Exemplo de Estrutura do Arquivo `config.py`
 

@@ -1,10 +1,14 @@
 # Arquivos de credenciais e segredos
 api_credentials.json
 db_config.json
+config.py
 
 # Arquivos de debug/log gerados pelo script
 api_payload_bruto.json
 debug_chaves.txt
+GeraArquivoBaseUnimedIntermed.spec
+unimed_raw_api_data.json
+
 
 # Arquivos de ambiente Python
 __pycache__/
@@ -12,3 +16,5 @@ __pycache__/
 
 # Pastas, Log e Cache
 dist/
+.idea/
+build/

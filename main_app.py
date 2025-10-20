@@ -6,112 +6,36 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sys
 import os
-import re
 from openpyxl.styles import Border, Side, Font, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
 from tkcalendar import DateEntry
 import locale
 
-# Configura o locale para formatação de moeda em Português do Brasil
+# IMPORTAÇÃO DOS DADOS DE CONFIGURAÇÃO E CREDENCIAIS
+# Todos os dicionários e listas (API_SECRETS, MAP_COLUMNS, etc.) são importados daqui.
+import config
+
+# Configura o locale
 try:
     locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 except locale.Error:
     try:
         locale.setlocale(locale.LC_ALL, 'Portuguese_Brazil.1252')
     except locale.Error:
-        print("Aviso: Não foi possível configurar o locale PT-BR. A formatação de moeda pode estar incorreta.")
-
-# --- CONFIGURAÇÃO DE COLUNAS E LAYOUT ---
-
-# 1. Mapeamento de campos da API para as colunas que DEVEM SER PREENCHIDAS.
-# MCI e NR FICHA são omitidos para permanecerem vazios no final.
-MAP_COLUMNS = {
-    'tipo': 'TIPO',
-    'nome_operacao': 'NOME OPERAÇÃO',
-    'dt_atualizacao': 'DT. ATUALIZADO',
-    'vencimento': 'DT. VENCIMENTO',
-    'vl_venda': 'VALOR OPERAÇÃO',
-    'vl_vencido': 'VALOR VENCIDO',
-    'cpf_cnpj': 'CPF / CNPJ',
-    'nome': 'NOME DO CLIENTE',
-    'endereco': 'ENDEREÇO',
-    'bairro': 'BAIRRO',
-    'cep': 'CEP',
-    'cidade': 'CIDADE',
-    'uf': 'UF',
-    'telefone1': 'TELEFONE 1',
-    'telefone2': 'TELEFONE 2',
-    'telefone3': 'TELEFONE 3',
-    'telefone4': 'TELEFONE 4',
-    'telefone5': 'TELEFONE 5',
-    'telefone6': 'TELEFONE 6',
-    'data_nascimento': 'DATA NASCIMENTO',
-    'naturalidade': 'NATURALIDADE',
-    'sexo': 'SEXO',
-    'estado_civil': 'ESTADO CIVIL',
-    'pai': 'NOME DO PAI',
-    'mae': 'NOME DA MÃE',
-    'email': 'E-MAIL',
-    'data_emissao': 'DT. EMISSÃO',
-    'benefs_contrato': 'OBS. OPERAÇÃO',
-    # REGRAS CRÍTICAS DE MAPAMENTO
-    'mci': 'NR OPERAÇÃO',
-    'nr_ficha': 'CONTA'
-}
-
-# 2. Ordem EXATA de TODAS as 113 colunas
-TARGET_COLUMNS = [
-    'TIPO', 'NR OPERAÇÃO', 'NOME OPERAÇÃO', 'AGENCIA', 'CONTA', 'PRODUTO', 'DT. ATUALIZADO',
-    'DT. VENCIMENTO', 'VALOR OPERAÇÃO', 'VALOR VENCIDO', 'COND. NEGOCIAIS', 'CPF / CNPJ',
-    'MCI', 'NR FICHA', 'NOME DO CLIENTE', 'ENDEREÇO', 'BAIRRO', 'CEP', 'CIDADE', 'UF',
-    'TELEFONE 1', 'TELEFONE 2', 'TELEFONE 3', 'TELEFONE 4', 'TELEFONE 5', 'TELEFONE 6',
-    'DATA NASCIMENTO', 'NATURALIDADE', 'SEXO', 'ESTADO CIVIL', 'NOME DO PAI', 'NOME DA MÃE',
-    'NOME AVALISTA 1', 'CPF/CNPJ AVALISTA 1', 'ENDEREÇO AVALISTA 1', 'BAIRRO AVALISTA 1',
-    'CEP AVALISTA 1', 'CIDADE AVALISTA 1', 'UF AVALISTA 1', 'TELEFONE 1 AVALISTA 1',
-    'TELEFONE 2 AVALISTA 1', 'NOME AVALISTA 2', 'CPF/CNPJ AVALISTA 2', 'ENDEREÇO AVALISTA 2',
-    'BAIRRO AVALISTA 2', 'CEP AVALISTA 2', 'CIDADE AVALISTA 2', 'UF AVALISTA 2',
-    'TELEFONE 1 AVALISTA 2', 'TELEFONE 2 AVALISTA 2', 'NOME AVALISTA 3', 'CPF/CNPJ AVALISTA 3',
-    'ENDEREÇO AVALISTA 3', 'BAIRRO AVALISTA 3', 'CEP AVALISTA 3', 'CIDADE AVALISTA 3',
-    'UF AVALISTA 3', 'TELEFONE 1 AVALISTA 3', 'TELEFONE 2 AVALISTA 3', 'NOME AVALISTA 4',
-    'CPF/CNPJ AVALISTA 4', 'ENDEREÇO AVALISTA 4', 'BAIRRO AVALISTA 4', 'CEP AVALISTA 4',
-    'CIDADE AVALISTA 4', 'UF AVALISTA 4', 'TELEFONE 1 AVALISTA 4', 'TELEFONE 2 AVALISTA 4',
-    'NOME AVALISTA 5', 'CPF/CNPJ AVALISTA 5', 'ENDEREÇO AVALISTA 5', 'BAIRRO AVALISTA 5',
-    'CEP AVALISTA 5', 'CIDADE AVALISTA 5', 'UF AVALISTA 5', 'TELEFONE 1 AVALISTA 5',
-    'TELEFONE 2 AVALISTA 5',
-    'NOME AVALISTA 6', 'CPF/CNPJ AVALISTA 6', 'ENDEREÇO AVALISTA 6', 'BAIRRO AVALISTA 6',
-    'CEP AVALISTA 6', 'CIDADE AVALISTA 6', 'UF AVALISTA 6', 'TELEFONE 1 AVALISTA 6',
-    'TELEFONE 2 AVALISTA 6',
-    'PROFISSÃO', 'NOME LOCAL DE TRABALHO', 'ENDEREÇO LOCAL DE TRABALHO', 'BAIRRO LOCAL DE TRABALHO',
-    'CEP LOCAL DE TRABALHO', 'CIDADE LOCAL DE TRABALHO', 'UF LOCAL DE TRABALHO',
-    'TELEFONE 1 LOCAL DE TRABALHO', 'TELEFONE 2 LOCAL DE TRABALHO',
-    'REFERENCIA PESSOAL', 'TELEFONE 1 REFERENCIA', 'TELEFONE 2 REFERENCIA',
-    'REFERENCIA PESSOAL 2', 'TELEFONE 1 REFERENCIA 2', 'TELEFONE 2 REFERENCIA 2',
-    'REFERENCIA PESSOAL 3', 'TELEFONE 1 REFERENCIA 3', 'TELEFONE 2 REFERENCIA 3',
-    'SPC/SERASA', 'E-MAIL', 'DT. EMISSÃO', 'VALOR PROTESTO', 'OBS. OPERAÇÃO',
-    'DT. FIMTERCERIZAÇÃO', 'VALOR JUROS', 'COD_CLASSIFICACAO_CLIENTE', 'COD_CLASSIFICACAO_OPERACAO'
-]
-
-EMPRESAS = {
-    "2003 - Unimed": "unimed",
-    "2004 - Intermed": "intermed"
-}
+        print("Aviso: Não foi possível configurar o locale PT-BR.")
 
 
 # --- FUNÇÕES DE UTILIDADE ---
 
-def load_credentials(file_path):
-    """Carrega credenciais de um arquivo JSON."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        messagebox.showerror("Erro de Arquivo",
-                             f"Arquivo de credenciais não encontrado: {file_path}. Crie-o seguindo o modelo.")
+def load_credentials():
+    """Retorna as credenciais de API diretamente do módulo config."""
+    # Checagem básica para garantir que o desenvolvedor preencheu os campos
+    if any(v.startswith("[URL_DE_AUTENTICACAO") for k, v in config.API_SECRETS["unimed"].items() if isinstance(v, str)):
+        messagebox.showerror("Erro de Configuração",
+                             "As credenciais no dicionário API_SECRETS no arquivo config.py não foram preenchidas com dados reais.")
         return None
-    except json.JSONDecodeError:
-        messagebox.showerror("Erro de Formato",
-                             f"Arquivo de credenciais JSON inválido: {file_path}. Verifique a sintaxe.")
-        return None
+
+    return config.API_SECRETS
 
 
 def calculate_dates():
@@ -129,12 +53,12 @@ def calculate_dates():
 
 def authenticate_api(empresa_key):
     """Autentica na API e retorna o token Bearer."""
-    creds = load_credentials('api_credentials.json')
+    creds = load_credentials()
     if not creds: return None
 
     empresa_data = creds.get(empresa_key)
     if not empresa_data:
-        messagebox.showerror("Erro", f"Dados da empresa '{empresa_key}' não encontrados.")
+        messagebox.showerror("Erro", f"Dados da empresa '{empresa_key}' não encontrados no config.API_SECRETS.")
         return None
 
     auth_url = empresa_data.get('auth_url')
@@ -173,14 +97,14 @@ def authenticate_api(empresa_key):
 
 def fetch_api_data(empresa_key, vencimento_inicio, vencimento_final, baixa_pdd, token):
     """Acessa o endpoint de dados da API e retorna os dados brutos."""
-    creds = load_credentials('api_credentials.json')
+    creds = load_credentials()
     if not creds: return None
 
     empresa_data = creds.get(empresa_key)
     data_url = empresa_data.get('data_url')
 
     if not data_url:
-        messagebox.showerror("Erro de Configuração", "URL de dados da API ausente no arquivo de credenciais.")
+        messagebox.showerror("Erro de Configuração", "URL de dados da API ausente no config.API_SECRETS.")
         return None
 
     params = {
@@ -200,15 +124,8 @@ def fetch_api_data(empresa_key, vencimento_inicio, vencimento_final, baixa_pdd, 
         response.raise_for_status()
 
         data = response.json()
-
-        try:
-            with open('api_payload_bruto.json', 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            print("Payload da API salvo em 'api_payload_bruto.json' para inspeção.")
-        except Exception as e:
-            print(f"Aviso: Não foi possível salvar o payload JSON bruto: {e}")
-
         return data
+
     except requests.exceptions.HTTPError as e:
         messagebox.showerror("Erro de Dados",
                              f"Falha HTTP ao buscar dados: {e}\nCorpo da Resposta: {response.text[:200]}...")
@@ -222,7 +139,7 @@ def fetch_api_data(empresa_key, vencimento_inicio, vencimento_final, baixa_pdd, 
         return None
 
 
-# --- Processamento de Dados (COM FORMATAÇÃO MONETÁRIA) ---
+# --- Processamento de Dados ---
 
 def process_data_no_db(api_data):
     """
@@ -246,7 +163,6 @@ def process_data_no_db(api_data):
                         value = op.get(api_key)
                         if value is not None:
                             try:
-                                # Converte para float e formata com o locale pt_BR (moeda sem símbolo R$)
                                 numeric_value = float(value)
                                 op[api_key] = locale.format_string("%.2f", numeric_value, grouping=True)
                             except (ValueError, TypeError):
@@ -259,21 +175,20 @@ def process_data_no_db(api_data):
 
     df = pd.DataFrame(all_records)
 
-    # 1. Renomeia as colunas usando o MAP_COLUMNS
-    df = df.rename(columns=MAP_COLUMNS)
+    # Usa o MAP_COLUMNS do arquivo de configuração
+    df = df.rename(columns=config.MAP_COLUMNS)
 
-    # 2. Reindexa o DataFrame para forçar a ordem e a presença EXATA das 113 colunas.
-    df_final = df.reindex(columns=TARGET_COLUMNS, fill_value='')
+    # Usa o TARGET_COLUMNS do arquivo de configuração
+    df_final = df.reindex(columns=config.TARGET_COLUMNS, fill_value='')
 
     return df_final
 
 
-# --- Exportação para Excel (BORDAS E NEGRITO REMOVIDOS) ---
+# --- Exportação para Excel ---
 
 def export_to_excel(df, empresa_selecionada, empresa_code):
     """
     Exporta o DataFrame para um arquivo Excel com o layout, nome e formatação corretos.
-    Bordas e Negrito removidos do cabeçalho.
     """
     if df.empty:
         messagebox.showinfo("Informação", "Nenhum dado para exportar.")
@@ -302,8 +217,8 @@ def export_to_excel(df, empresa_selecionada, empresa_code):
         num_remessa = f"{empresa_code}{hoje.strftime('%y%m%d')}"
 
         # Definição de estilos
-        none_border = Border()  # Borda vazia para remover bordas indesejadas
-        default_font = Font(bold=False)  # Garante que o negrito é desativado
+        none_border = Border()
+        default_font = Font(bold=False)
 
         SHEET_NAME = 'Novas Operações'
 
@@ -315,41 +230,35 @@ def export_to_excel(df, empresa_selecionada, empresa_code):
 
             # --- 1. Escreve os Títulos e Dados do DataFrame ---
 
-            # Escreve o cabeçalho do DF (Linha 3 do Excel)
             cols = list(df.columns)
             for c_idx, col_name in enumerate(cols, 1):
                 cell = sheet.cell(row=3, column=c_idx, value=col_name)
-                cell.border = none_border  # **REMOVIDA BORDA**
-                cell.font = default_font  # **REMOVIDO NEGRITO**
+                cell.border = none_border
+                cell.font = default_font
 
-            # Escreve os dados (A partir da Linha 4) e REMOVE BORDAS PADRÕES
             for r_idx, row in enumerate(dataframe_to_rows(df, header=False, index=False)):
                 for c_idx, value in enumerate(row, 1):
                     cell = sheet.cell(row=r_idx + 4, column=c_idx, value=value)
-                    cell.border = none_border  # <-- Garante que a borda é removida
+                    cell.border = none_border
 
-            # --- 2. Escreve e formata o Cabeçalho de Controle (Linhas 1 e 2) ---
+                    # --- 2. Escreve e formata o Cabeçalho de Controle (Linhas 1 e 2) ---
 
-            # Linha 1 (Títulos de Controle)
             sheet.cell(row=1, column=1, value="Dt. Remessa").border = none_border
             sheet.cell(row=1, column=2, value="Número da Remessa").border = none_border
             sheet.cell(row=1, column=3, value="Código da Empresa").border = none_border
             sheet.cell(row=1, column=4, value="Código de Evento Ref. A Atualização").border = none_border
             sheet.cell(row=1, column=5, value="Retomar/Liquidar Operacao não Presentes").border = none_border
 
-            # Linha 2 (Valores de Controle)
             sheet.cell(row=2, column=1, value=dt_remessa_formatada).border = none_border
             sheet.cell(row=2, column=2, value=num_remessa).border = none_border
             sheet.cell(row=2, column=3, value=empresa_code).border = none_border
             sheet.cell(row=2, column=4, value="Ver: 07-05-2015").border = none_border
             sheet.cell(row=2, column=5, value="").border = none_border
 
-            # Garantindo que todas as células do cabeçalho (Linhas 1 e 2) não tenham negrito
             for r in range(1, 3):
                 for c in range(1, 6):
                     sheet.cell(row=r, column=c).font = default_font
 
-            # Ajusta a largura das colunas A, B e C para legibilidade
             sheet.column_dimensions['A'].width = 18
             sheet.column_dimensions['B'].width = 18
             sheet.column_dimensions['C'].width = 18
@@ -361,7 +270,7 @@ def export_to_excel(df, empresa_selecionada, empresa_code):
         messagebox.showerror("Erro de Exportação", f"Falha ao exportar para Excel: {e}")
 
 
-# --- Interface Gráfica (Mantida) ---
+# --- Interface Gráfica ---
 
 class Application(tk.Tk):
     def __init__(self):
@@ -370,8 +279,6 @@ class Application(tk.Tk):
         self.geometry("480x420")
         self.resizable(False, False)
         self.configure(padx=10, pady=10)
-
-        load_credentials('api_credentials.json')
 
         style = ttk.Style(self)
         style.configure('Gray.TLabel', foreground='gray')
@@ -383,30 +290,27 @@ class Application(tk.Tk):
         main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(padx=10, pady=10, fill='x')
 
-        # --- Seleção da Empresa ---
+        # --- Seleção da Empresa (usa EMPRESAS do config) ---
         ttk.Label(main_frame, text="1. Empresa (Banco):").grid(row=0, column=0, sticky='w', pady=5)
         self.empresa_var = tk.StringVar(self)
-        self.empresa_var.set(list(EMPRESAS.keys())[0])
-        self.empresa_menu = ttk.Combobox(main_frame, textvariable=self.empresa_var, values=list(EMPRESAS.keys()),
+        self.empresa_var.set(list(config.EMPRESAS.keys())[0])
+        self.empresa_menu = ttk.Combobox(main_frame, textvariable=self.empresa_var, values=list(config.EMPRESAS.keys()),
                                          state='readonly', width=30)
         self.empresa_menu.grid(row=0, column=1, columnspan=2, sticky='we', pady=5)
 
         # --- Parâmetros de Data (DateEntry - Calendário) ---
 
-        # Datas automáticas (formato dd/mm/aaaa)
         venc_inicio_auto_str, venc_final_auto_str = calculate_dates()
         venc_inicio_auto = datetime.strptime(venc_inicio_auto_str, "%d/%m/%Y").date()
         venc_final_auto = datetime.strptime(venc_final_auto_str, "%d/%m/%Y").date()
 
         ttk.Label(main_frame, text="Vencimento Início:").grid(row=1, column=0, sticky='w', pady=2)
-        # Widget de calendário para Vencimento Início
         self.venc_inicio_entry = DateEntry(main_frame, width=12, background='darkblue',
                                            foreground='white', borderwidth=2, date_pattern='dd/MM/yyyy')
         self.venc_inicio_entry.set_date(venc_inicio_auto)
         self.venc_inicio_entry.grid(row=1, column=1, sticky='w', pady=2, padx=2)
 
         ttk.Label(main_frame, text="Vencimento Final:").grid(row=2, column=0, sticky='w', pady=2)
-        # Widget de calendário para Vencimento Final
         self.venc_final_entry = DateEntry(main_frame, width=12, background='darkblue',
                                           foreground='white', borderwidth=2, date_pattern='dd/MM/yyyy')
         self.venc_final_entry.set_date(venc_final_auto)
@@ -441,11 +345,13 @@ class Application(tk.Tk):
         """Função principal que orquestra todo o processo."""
         self.update_status("Iniciando...")
 
-        if os.path.exists('debug_chaves.txt'):
-            os.remove('debug_chaves.txt')
-
         empresa_selecionada = self.empresa_var.get()
-        empresa_key = EMPRESAS.get(empresa_selecionada)
+        empresa_key = config.EMPRESAS.get(empresa_selecionada)
+
+        # 0. Checagem de Credenciais
+        if not load_credentials():
+            self.update_status("3. Executar Processamento e Gerar Excel")
+            return
 
         try:
             banco_code = empresa_selecionada.split(' ')[0]
